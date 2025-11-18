@@ -2,7 +2,7 @@ from pathlib import Path
 import logging
 
 # Import your pipeline steps
-from extract import extract
+from providers.extract_provider1 import extract
 from transform import transform
 from load import load
 
