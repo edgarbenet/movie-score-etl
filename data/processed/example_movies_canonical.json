@@ -1,0 +1,26 @@
+[
+  {
+    "movie_id": "75d9e8d5",
+    "movie_title": "Inception",
+    "release_year": 2010,
+    "critic_score": 0.87,
+    "top_critic_score": 8.1,
+    "total_critic_ratings": 450
+  },
+  {
+    "movie_id": "297fadc8",
+    "movie_title": "The Dark Knight",
+    "release_year": 2008,
+    "critic_score": 0.94,
+    "top_critic_score": 8.6,
+    "total_critic_ratings": 350
+  },
+  {
+    "movie_id": "ec475aea",
+    "movie_title": "Parasite",
+    "release_year": 2019,
+    "critic_score": 0.99,
+    "top_critic_score": 9.5,
+    "total_critic_ratings": 475
+  }
+]
