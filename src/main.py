@@ -1,72 +1,83 @@
 from pathlib import Path
-import logging
-import csv, json
-
-# Import your pipeline steps
 from providers.readers import extract_from_path
 from transform import transform
 from load import load
-# Project root = one level above src/main.py
-BASE_DIR = Path(__file__).resolve().parent.parent
 
+from utils.logutils import (
+    get_logger, color, bold, indent,
+    CYAN, GREEN, YELLOW, MAGENTA, RED, ICONS
+)
+
+logger = get_logger("main")
+
+
+BASE_DIR = Path(__file__).resolve().parent.parent
 RAW_DATA_DIR = BASE_DIR / "data/raw"
 PROCESSED_DATA_PATH = BASE_DIR / "data/processed/movies_canonical.json"
-MERGED_DATA_PATH = BASE_DIR / "data/processed/movies_canonical_merged.json"
 
-# Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(message)s",
-)
-logger = logging.getLogger("main")
 
 def extract_all_providers(input_data: Path) -> list[dict]:
+    logger.info(color(f"{ICONS['scan']} Scanning providers in: {input_data}", CYAN))
+
     all_rows: list[dict] = []
 
     for provider_path in input_data.iterdir():
         if not provider_path.is_file():
             continue
+
         if provider_path.suffix.lower() not in {".csv", ".json"}:
+            logger.info(indent(f"⚪ Skipping non-data file: {provider_path.name}"))
             continue
 
-        provider_name = provider_path.stem  # "provider1", "provider2", ...
-        logger.info(f"Loading provider: {provider_path.name}")
+        logger.info(indent(f"🔹 Found provider file: {bold(provider_path.name)}"))
 
         try:
+            logger.info(indent("📥 Extracting rows...", 2))
             rows = extract_from_path(provider_path)
-            logger.info(f"-> Extracted {len(rows)} rows from {provider_path.name}")
+            logger.info(
+                indent(
+                    f"{ICONS['ok']} Extracted {color(str(len(rows)), GREEN)} rows",
+                    2,
+                )
+            )
         except Exception as exc:
-            logger.error(f"Failed to load provider {provider_name} from {provider_path:NAME}: {exc}")
-            # optionally continue to the next provider
+            logger.error(indent(color(f"{ICONS['err']} Failed: {exc}", RED), 2))
             continue
 
         for row in rows:
-            row["_provider"] = provider_name
+            row["_provider"] = provider_path.stem
 
         all_rows.extend(rows)
 
-    logger.info(f"Total rows from all providers: {len(all_rows)}")
+    logger.info(
+        color(
+            f"📊 Total rows extracted: {bold(str(len(all_rows)))}",
+            CYAN,
+        )
+    )
     return all_rows
 
 
-# ---------- ORCHESTRATION ----------
+def run_etl():
+    logger.info(color(bold("🎬 Starting ETL pipeline"), MAGENTA))
 
-def run_etl() -> None:
-
+    logger.info(color(" [1/4] Extract", YELLOW))
     raw = extract_all_providers(RAW_DATA_DIR)
 
-    # 1) Middle step: transformed (pre-merge)
+    logger.info(color(" [2/4] Transform", YELLOW))
     transformed = transform(raw)
-    load(transformed, PROCESSED_DATA_PATH)
-    logger.info(f"Wrote canonical movies to {PROCESSED_DATA_PATH}")
 
-    # 2) Final step: merged per movie_id
-    #merged = merge_movies(transformed)
-    #load(merged, MERGED_DATA_PATH)
-    #logger.info(f"Wrote merged movies to {MERGED_DATA_PATH}")
+    logger.info(color(" [3/4] Merge", YELLOW))
+    # keep your existing merge logic, even if commented out
+    # merged = merge_movies(transformed)
+
+    logger.info(color(" [4/4] Load", YELLOW))
+    load(transformed, PROCESSED_DATA_PATH)
+    #load(merged, PROCESSED_DATA_PATH)
+
+
+    logger.info(color(f"💾 Output: {PROCESSED_DATA_PATH.name}", GREEN))
 
 
 if __name__ == "__main__":
-    # Hardcoded paths for iteration 1
-    # Later: argparse / config file / env vars.
-    run_etl()  # type: ignore
+    run_etl()
