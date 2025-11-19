@@ -1,6 +1,7 @@
 from pathlib import Path
 from providers.readers import extract_from_path
 from transform import transform
+from merge import merge_from_canonical
 from load import load
 
 from utils.logutils import (
@@ -13,7 +14,8 @@ logger = get_logger("main")
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 RAW_DATA_DIR = BASE_DIR / "data/raw"
-PROCESSED_DATA_PATH = BASE_DIR / "data/processed/movies_canonical.json"
+CANONICAL_DATA_PATH = BASE_DIR / "data/processed/movies_canonical.json"
+MERGED_DATA_PATH = BASE_DIR / "data/processed/movies_merged.json"
 
 
 def extract_all_providers(input_data: Path) -> list[dict]:
@@ -45,7 +47,7 @@ def extract_all_providers(input_data: Path) -> list[dict]:
             continue
 
         for row in rows:
-            row["_provider"] = provider_path.stem
+            row["provider"] = provider_path.stem
 
         all_rows.extend(rows)
 
@@ -66,18 +68,16 @@ def run_etl():
 
     logger.info(color(" [2/4] Transform", YELLOW))
     transformed = transform(raw)
+    load(transformed, CANONICAL_DATA_PATH)
 
     logger.info(color(" [3/4] Merge", YELLOW))
-    # keep your existing merge logic, even if commented out
-    # merged = merge_movies(transformed)
+    merged_records = merge_from_canonical(CANONICAL_DATA_PATH)
+
 
     logger.info(color(" [4/4] Load", YELLOW))
-    load(transformed, PROCESSED_DATA_PATH)
-    #load(merged, PROCESSED_DATA_PATH)
+    load(merged_records, MERGED_DATA_PATH)
 
-
-    logger.info(color(f"\n{ICONS['result']}  OUTPUT: {PROCESSED_DATA_PATH.name}", MAGENTA))
-
+    logger.info(color(f"\n{ICONS['result']}  OUTPUT: {MERGED_DATA_PATH.name}", MAGENTA))
 
 if __name__ == "__main__":
     run_etl()

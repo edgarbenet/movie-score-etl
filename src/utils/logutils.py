@@ -2,7 +2,11 @@
 import logging
 import sys
 
-# ---------- COLORS ----------
+# ----------------- GLOBAL LOG LEVEL -----------------
+#LOG_LEVEL = "INFO"
+LOG_LEVEL = "DEBUG"
+
+# ----------------- COLORS -----------------
 RESET = "\033[0m"
 BOLD = "\033[1m"
 
@@ -15,7 +19,7 @@ MAGENTA = "\033[95m"
 CYAN = "\033[96m"
 WHITE = "\033[97m"
 
-# ---------- ICONS (optional helpers) ----------
+# ----------------- ICONS -----------------
 ICONS = {
     "movie": "🎬",
     "extract": "📥",
@@ -27,37 +31,45 @@ ICONS = {
     "info": "ℹ️",
     "scan": "📂",
     "dispatch": "🔎",
+    "merge": "🔀",
     "result": "➡️"
 }
 
-# ---------- LOGGER FACTORY ----------
+# ----------------- LOGGER FACTORY -----------------
 def get_logger(name: str) -> logging.Logger:
     logger = logging.getLogger(name)
 
-    # prevent double handlers in notebooks / reloads
+    # Avoid duplicated handlers
     if logger.handlers:
         return logger
 
     handler = logging.StreamHandler(sys.stdout)
 
-    formatter = logging.Formatter("%(message)s")
+    # Formatter depends on LOG_LEVEL:
+    if LOG_LEVEL.upper() == "INFO":
+        # CLEAN OUTPUT (no module, no level)
+        formatter = logging.Formatter("%(message)s")
+    else:
+        # DEBUG → SHOW module name + level
+        formatter = logging.Formatter(
+            "%(levelname)s [%(name)s]: %(message)s"
+        )
+
     handler.setFormatter(formatter)
 
-    logger.setLevel(logging.INFO)
+    # Set logger level
+    level = logging.DEBUG if LOG_LEVEL.upper() == "DEBUG" else logging.INFO
+    logger.setLevel(level)
     logger.addHandler(handler)
 
     return logger
 
-
-# ---------- CONVENIENCE HELPERS ----------
+# ----------------- HELPERS -----------------
 def color(text: str, c: str) -> str:
     return f"{c}{text}{RESET}"
-
 
 def bold(text: str) -> str:
     return f"{BOLD}{text}{RESET}"
 
-
 def indent(text: str, level: int = 1) -> str:
-    """Indent with spaces for hierarchical logs."""
     return "   " * level + text
