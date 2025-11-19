@@ -67,11 +67,22 @@ def transform(data_raw: list[dict]) -> list[dict]:
         # -----------------------
         # FIELD TRANSFORMATIONS
         # -----------------------
+
         movie_title_raw = get_first(row, FIELD_MAP["movie_title"], default="") or ""
         movie_title = movie_title_raw.strip()
+        if not movie_title:
+            raise KeyError(
+                f"{ICONS['err']} Missing required field 'movie_title' "
+                f"for provider={provider_name} row={row}"
+            )
 
         release_year_raw = get_first(row, FIELD_MAP["release_year"])
         release_year = int(release_year_raw) if release_year_raw not in (None, "") else None
+        if release_year is None:
+            raise KeyError(
+                f"{ICONS['err']} Missing required field 'release_year' "
+                f"for provider={provider_name} row={row}"
+            )
 
         # critic_score -> float in [0,1] from percentage
         critic_score_ratio_raw = get_first(row, FIELD_MAP.get("critic_score", []))

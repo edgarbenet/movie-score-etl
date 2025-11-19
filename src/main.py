@@ -1,8 +1,9 @@
+import sys
 from pathlib import Path
-from readers import extract_from_path
-from transform import transform
-from merge import merge_from_canonical
-from load import load
+from src.readers import extract_from_path
+from src.transform import transform
+from src.merge import merge_from_canonical
+from src.load import load
 
 from src.utils.logutils import (
     get_logger, color, bold, indent,
@@ -61,7 +62,6 @@ def extract_all_providers(input_data: Path) -> list[dict]:
 
 
 def run_etl():
-    logger.info(color(bold(f"{ICONS['movie']} Starting ETL pipeline..."), MAGENTA))
 
     logger.info(color(" [1/4] Extract", YELLOW))
     raw = extract_all_providers(RAW_DATA_DIR)
@@ -78,6 +78,16 @@ def run_etl():
     load(merged_records, MERGED_DATA_PATH)
 
     logger.info(color(f"\n{ICONS['result']}  OUTPUT: {MERGED_DATA_PATH.name}", MAGENTA))
+    
 
 if __name__ == "__main__":
-    run_etl()
+    logger.info(color(bold(f"{ICONS['movie']} Starting ETL pipeline..."), MAGENTA))    
+    try:
+        run_etl()
+    except KeyError as e:
+        logger.error(color(f"{ICONS['err']} ETL failed: {e}", RED))
+        sys.exit(1)
+    except Exception:
+        # Log full traceback to logs, but still crash
+        logger.exception(color(f"{ICONS['err']} Unexpected ETL error", RED))
+        raise
