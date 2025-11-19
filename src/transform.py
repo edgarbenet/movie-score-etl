@@ -1,6 +1,6 @@
 import uuid
 
-from utils.logutils import (
+from src.utils.logutils import (
     get_logger, color, bold, indent,
     CYAN, GREEN, YELLOW, RED, ICONS
 )

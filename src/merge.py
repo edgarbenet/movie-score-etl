@@ -5,7 +5,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List, Tuple
 
-from utils.logutils import (
+from src.utils.logutils import (
     get_logger,
     ICONS,
     CYAN,
