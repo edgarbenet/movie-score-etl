@@ -11,6 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 RAW_DATA_DIR = BASE_DIR / "data/raw"
 PROCESSED_DATA_PATH = BASE_DIR / "data/processed/movies_canonical.json"
+MERGED_DATA_PATH = BASE_DIR / "data/processed/movies_canonical_merged.json"
 
 # Configure logging
 logging.basicConfig(
@@ -50,16 +51,22 @@ def extract_all_providers(input_data: Path) -> list[dict]:
 
 # ---------- ORCHESTRATION ----------
 
-def run_etl(input_path: str, output_path: str) -> None:
-    input_data = Path(input_path)
-    output_data = Path(output_path)
+def run_etl() -> None:
 
-    raw = extract_all_providers(input_data)
+    raw = extract_all_providers(RAW_DATA_DIR)
+
+    # 1) Middle step: transformed (pre-merge)
     transformed = transform(raw)
-    load(transformed, output_data)
+    load(transformed, PROCESSED_DATA_PATH)
+    logger.info(f"Wrote canonical movies to {PROCESSED_DATA_PATH}")
+
+    # 2) Final step: merged per movie_id
+    #merged = merge_movies(transformed)
+    #load(merged, MERGED_DATA_PATH)
+    #logger.info(f"Wrote merged movies to {MERGED_DATA_PATH}")
 
 
 if __name__ == "__main__":
     # Hardcoded paths for iteration 1
     # Later: argparse / config file / env vars.
-    run_etl(RAW_DATA_DIR, PROCESSED_DATA_PATH)  # type: ignore
+    run_etl()  # type: ignore
