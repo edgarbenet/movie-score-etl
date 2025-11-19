@@ -17,6 +17,7 @@ WHITE = "\033[97m"
 
 # ---------- ICONS (optional helpers) ----------
 ICONS = {
+    "movie": "🎬",
     "extract": "📥",
     "transform": "🔧",
     "load": "💾",
@@ -26,6 +27,7 @@ ICONS = {
     "info": "ℹ️",
     "scan": "📂",
     "dispatch": "🔎",
+    "result": "➡️"
 }
 
 # ---------- LOGGER FACTORY ----------

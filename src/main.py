@@ -29,10 +29,10 @@ def extract_all_providers(input_data: Path) -> list[dict]:
             logger.info(indent(f"⚪ Skipping non-data file: {provider_path.name}"))
             continue
 
-        logger.info(indent(f"🔹 Found provider file: {bold(provider_path.name)}"))
+        logger.info(indent(f"🔹 Found {bold(provider_path.name)}"))
 
         try:
-            logger.info(indent("📥 Extracting rows...", 2))
+            logger.info(indent(color(f"{ICONS['extract']} Extracting rows...", CYAN), 2))
             rows = extract_from_path(provider_path)
             logger.info(
                 indent(
@@ -50,16 +50,16 @@ def extract_all_providers(input_data: Path) -> list[dict]:
         all_rows.extend(rows)
 
     logger.info(
-        color(
+        indent(color(
             f"📊 Total rows extracted: {bold(str(len(all_rows)))}",
-            CYAN,
-        )
+            GREEN,
+        ))
     )
     return all_rows
 
 
 def run_etl():
-    logger.info(color(bold("🎬 Starting ETL pipeline"), MAGENTA))
+    logger.info(color(bold(f"{ICONS['movie']} Starting ETL pipeline..."), MAGENTA))
 
     logger.info(color(" [1/4] Extract", YELLOW))
     raw = extract_all_providers(RAW_DATA_DIR)
@@ -76,7 +76,7 @@ def run_etl():
     #load(merged, PROCESSED_DATA_PATH)
 
 
-    logger.info(color(f"💾 Output: {PROCESSED_DATA_PATH.name}", GREEN))
+    logger.info(color(f"\n{ICONS['result']}  OUTPUT: {PROCESSED_DATA_PATH.name}", MAGENTA))
 
 
 if __name__ == "__main__":

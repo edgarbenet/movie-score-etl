@@ -1,6 +1,13 @@
 import uuid
 from typing import List
 
+from utils.logutils import (
+    get_logger, color, bold, indent,
+    CYAN, GREEN, YELLOW, RED, ICONS
+)
+
+logger = get_logger(__name__)
+
 FIELD_MAP = {
     "movie_title": ["movie_title", "title", "name"],
     "release_year": ["release_year", "year"],
@@ -15,7 +22,6 @@ FIELD_MAP = {
     "audience_rating_count": ["total_audience_ratings"],
     "domestic_box_office": ["domestic_box_office_gross"],
 }
-
 
 
 def generate_movie_id(movie_title: str, release_year: int | None) -> str:
@@ -36,9 +42,23 @@ def get_first(record: dict, keys: list[str], default=None):
 
 
 def transform(data_raw: list[dict]) -> list[dict]:
+
+    logger.info(indent(color(
+        f"{ICONS['transform']} Transforming {bold(str(len(data_raw)))} records...",
+        CYAN
+    )))
+
     transformed: list[dict] = []
 
+    # Show a couple of sample inputs
+    for i, row in enumerate(data_raw[:2], 1):
+        logger.debug(indent(f"🧪 Sample raw #{i}: {row}", 2))
+
     for row in data_raw:
+
+        # -----------------------
+        # FIELD TRANSFORMATIONS
+        # -----------------------
         movie_title_raw = get_first(row, FIELD_MAP["movie_title"], default="") or ""
         movie_title = movie_title_raw.strip()
 
@@ -68,8 +88,7 @@ def transform(data_raw: list[dict]) -> list[dict]:
             else None
         )
 
-        # --- provider2 fields ---
-
+        # provider2 fields
         audience_score_raw = get_first(row, FIELD_MAP.get("audience_score", []))
         audience_score = (
             float(audience_score_raw)
@@ -104,6 +123,12 @@ def transform(data_raw: list[dict]) -> list[dict]:
             "audience_rating_count": audience_rating_count,
             "domestic_box_office": domestic_box_office,
         }
+
         transformed.append(movie)
+
+    logger.info(indent(color(
+        f"{ICONS['ok']} Produced {bold(str(len(transformed)))} transformed movies",
+        GREEN
+    )))
 
     return transformed
