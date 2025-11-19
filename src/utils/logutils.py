@@ -3,8 +3,8 @@ import logging
 import sys
 
 # ----------------- GLOBAL LOG LEVEL -----------------
-#LOG_LEVEL = "INFO"
-LOG_LEVEL = "DEBUG"
+LOG_LEVEL = "INFO"
+#LOG_LEVEL = "DEBUG"
 
 # ----------------- COLORS -----------------
 RESET = "\033[0m"
@@ -52,7 +52,7 @@ def get_logger(name: str) -> logging.Logger:
     else:
         # DEBUG → SHOW module name + level
         formatter = logging.Formatter(
-            "%(levelname)s [%(name)s]: %(message)s"
+            "%(levelname)s [%(name)s]: \t %(message)s"
         )
 
     handler.setFormatter(formatter)

@@ -1,5 +1,5 @@
 from pathlib import Path
-from providers.readers import extract_from_path
+from readers import extract_from_path
 from transform import transform
 from merge import merge_from_canonical
 from load import load
