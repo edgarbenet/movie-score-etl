@@ -1,18 +1,21 @@
 from pathlib import Path
 import csv, json
 
-from src.utils.logutils import (
-    get_logger, color, bold, indent, CYAN, GREEN, YELLOW, RED, ICONS
-)
+from src.utils.logutils import get_logger, color, bold, indent, CYAN, GREEN, YELLOW, RED, ICONS
 
 logger = get_logger(__name__)
 
 
 def extract_csv(path: Path) -> list[dict]:
-    logger.info(indent(color(
-        f"{ICONS['dispatch']} Reading CSV file...",
-        CYAN,
-    ), 2))
+    logger.info(
+        indent(
+            color(
+                f"{ICONS['dispatch']} Reading CSV file...",
+                CYAN,
+            ),
+            2,
+        )
+    )
     rows = []
     with path.open(newline="", encoding="utf-8") as f:
         for r in csv.DictReader(f):
@@ -21,10 +24,15 @@ def extract_csv(path: Path) -> list[dict]:
 
 
 def extract_json(path: Path) -> list[dict]:
-    logger.info(indent(color(
-        f"{ICONS['dispatch']} Reading JSON file...",
-        CYAN,
-    ), 2))
+    logger.info(
+        indent(
+            color(
+                f"{ICONS['dispatch']} Reading JSON file...",
+                CYAN,
+            ),
+            2,
+        )
+    )
 
     with path.open(encoding="utf-8") as f:
         data = json.load(f)

@@ -4,7 +4,7 @@ import sys
 
 # ----------------- GLOBAL LOG LEVEL -----------------
 LOG_LEVEL = "INFO"
-#LOG_LEVEL = "DEBUG"
+# LOG_LEVEL = "DEBUG"
 
 # ----------------- COLORS -----------------
 RESET = "\033[0m"
@@ -32,8 +32,9 @@ ICONS = {
     "scan": "📂",
     "dispatch": "🔎",
     "merge": "🔀",
-    "result": "➡️"
+    "result": "➡️",
 }
+
 
 # ----------------- LOGGER FACTORY -----------------
 def get_logger(name: str) -> logging.Logger:
@@ -51,9 +52,7 @@ def get_logger(name: str) -> logging.Logger:
         formatter = logging.Formatter("%(message)s")
     else:
         # DEBUG → SHOW module name + level
-        formatter = logging.Formatter(
-            "%(levelname)s [%(name)s]: \t %(message)s"
-        )
+        formatter = logging.Formatter("%(levelname)s [%(name)s]: \t %(message)s")
 
     handler.setFormatter(formatter)
 
@@ -64,12 +63,15 @@ def get_logger(name: str) -> logging.Logger:
 
     return logger
 
+
 # ----------------- HELPERS -----------------
 def color(text: str, c: str) -> str:
     return f"{c}{text}{RESET}"
 
+
 def bold(text: str) -> str:
     return f"{BOLD}{text}{RESET}"
+
 
 def indent(text: str, level: int = 1) -> str:
     return "   " * level + text

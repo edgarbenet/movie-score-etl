@@ -2,11 +2,10 @@ from pathlib import Path
 from datetime import datetime
 import json
 
-from src.utils.logutils import (
-    get_logger, color, bold, indent, CYAN, GREEN, ICONS
-)
+from src.utils.logutils import get_logger, color, bold, indent, CYAN, GREEN, ICONS
 
 logger = get_logger(__name__)
+
 
 def to_presentation_model(record: dict) -> dict:
     """
@@ -38,7 +37,11 @@ def to_presentation_model(record: dict) -> dict:
         "providers": record.get("providers", []),
     }
 
-def build_output_filename(output_dir: Path, prefix: str = "movies_merged",) -> Path:
+
+def build_output_filename(
+    output_dir: Path,
+    prefix: str = "movies_merged",
+) -> Path:
     """
     Always generate a filename with the current date:
         movies_merged_2025-11-20.json
@@ -48,6 +51,7 @@ def build_output_filename(output_dir: Path, prefix: str = "movies_merged",) -> P
     date_str = datetime.now().strftime("%Y-%m-%d")
     filename = f"{prefix}_{date_str}.json"
     return output_dir / filename
+
 
 def write_canonical(records: list[dict], output_path: Path) -> None:
     """
@@ -67,10 +71,8 @@ def write_canonical(records: list[dict], output_path: Path) -> None:
     with final_path.open("w", encoding="utf-8") as f:
         json.dump(wrapper, f, indent=2, ensure_ascii=False)
 
-    logger.info(indent(color(
-        f"{ICONS['ok']} Wrote canonical data → {final_path.name}",
-        GREEN
-    )))
+    logger.info(indent(color(f"{ICONS['ok']} Wrote canonical data → {final_path.name}", GREEN)))
+
 
 def load(records: list[dict], output_path: Path) -> None:
     """
@@ -82,10 +84,14 @@ def load(records: list[dict], output_path: Path) -> None:
         prefix="movies_merged",
     )
 
-    logger.info(indent(color(
-        f"{ICONS['load']} Writing {bold(str(len(records)))} records → {final_path.name}",
-        CYAN,
-    )))
+    logger.info(
+        indent(
+            color(
+                f"{ICONS['load']} Writing {bold(str(len(records)))} records → {final_path.name}",
+                CYAN,
+            )
+        )
+    )
 
     shaped = [to_presentation_model(r) for r in records]
 

@@ -1,9 +1,6 @@
 import uuid
 
-from src.utils.logutils import (
-    get_logger, color, bold, indent,
-    CYAN, GREEN, YELLOW, RED, ICONS
-)
+from src.utils.logutils import get_logger, color, bold, indent, CYAN, GREEN, YELLOW, RED, ICONS
 
 logger = get_logger(__name__)
 
@@ -12,20 +9,16 @@ FIELD_MAP = {
     # --- Identity ---
     "movie_title": ["movie_title", "title", "name", "film_name"],
     "release_year": ["release_year", "year", "year_of_release"],
-
     # --- Provider1 (critics) ---
     "critic_score": ["critic_score_percentage", "critic_score"],
     "top_critic_score": ["top_critic_score"],
     "total_critic_ratings": ["total_critic_reviews_counted"],
-
     # --- Provider2 (audience + domestic) ---
     "audience_avg_score": ["audience_average_score"],
     "total_audience_ratings": ["total_audience_ratings"],
     "domestic_box_office_gross": ["domestic_box_office_gross"],
-
     # --- Generic box office (e.g. provider3_international) ---
     "box_office_gross_usd": ["box_office_gross_usd"],
-
     # --- Provider3 (financials) ---
     "production_budget_usd": ["production_budget_usd", "production_budget"],
     "marketing_spend_usd": ["marketing_spend_usd", "marketing_spend"],
@@ -50,10 +43,11 @@ def get_first(record: dict, keys: list[str], default=None):
 
 
 def transform(data_raw: list[dict]) -> list[dict]:
-    logger.info(indent(color(
-        f"{ICONS['transform']} Transforming {bold(str(len(data_raw)))} records...",
-        CYAN
-    )))
+    logger.info(
+        indent(
+            color(f"{ICONS['transform']} Transforming {bold(str(len(data_raw)))} records...", CYAN)
+        )
+    )
 
     transformed: list[dict] = []
 
@@ -94,25 +88,19 @@ def transform(data_raw: list[dict]) -> list[dict]:
         # top_critic_score
         top_critic_score_raw = get_first(row, FIELD_MAP.get("top_critic_score", []))
         top_critic_score = (
-            float(top_critic_score_raw)
-            if top_critic_score_raw not in (None, "")
-            else None
+            float(top_critic_score_raw) if top_critic_score_raw not in (None, "") else None
         )
 
         # total_critic_ratings
         total_critic_ratings_raw = get_first(row, FIELD_MAP.get("total_critic_ratings", []))
         total_critic_ratings = (
-            int(total_critic_ratings_raw)
-            if total_critic_ratings_raw not in (None, "")
-            else None
+            int(total_critic_ratings_raw) if total_critic_ratings_raw not in (None, "") else None
         )
 
         # Provider2 audience score
         audience_avg_score_raw = get_first(row, FIELD_MAP.get("audience_avg_score", []))
         audience_avg_score = (
-            float(audience_avg_score_raw)
-            if audience_avg_score_raw not in (None, "")
-            else None
+            float(audience_avg_score_raw) if audience_avg_score_raw not in (None, "") else None
         )
 
         total_audience_ratings_raw = get_first(row, FIELD_MAP.get("total_audience_ratings", []))
@@ -157,16 +145,12 @@ def transform(data_raw: list[dict]) -> list[dict]:
         # --- Provider3_financials: budget + marketing ---
         production_budget_usd_raw = get_first(row, FIELD_MAP.get("production_budget_usd", []))
         production_budget_usd = (
-            int(production_budget_usd_raw)
-            if production_budget_usd_raw not in (None, "")
-            else None
+            int(production_budget_usd_raw) if production_budget_usd_raw not in (None, "") else None
         )
 
         marketing_spend_usd_raw = get_first(row, FIELD_MAP.get("marketing_spend_usd", []))
         marketing_spend_usd = (
-            int(marketing_spend_usd_raw)
-            if marketing_spend_usd_raw not in (None, "")
-            else None
+            int(marketing_spend_usd_raw) if marketing_spend_usd_raw not in (None, "") else None
         )
 
         # ID
@@ -176,31 +160,28 @@ def transform(data_raw: list[dict]) -> list[dict]:
             "movie_id": movie_id,
             "movie_title": movie_title,
             "release_year": release_year,
-
             # Scores
             "critic_score": critic_score,
             "top_critic_score": top_critic_score,
             "audience_avg_score": audience_avg_score,
-
             # Counts
             "total_critic_ratings": total_critic_ratings,
             "total_audience_ratings": total_audience_ratings,
-
             # Financials
             "domestic_box_office_gross": domestic_box_office_gross,
             "box_office_gross_usd": box_office_gross_usd,
             "production_budget_usd": production_budget_usd,
             "marketing_spend_usd": marketing_spend_usd,
-
             # for debugging / merge step
             "provider": row.get("provider"),
         }
 
         transformed.append(movie)
 
-    logger.info(indent(color(
-        f"{ICONS['ok']} Produced {bold(str(len(transformed)))} transformed movies",
-        GREEN
-    )))
+    logger.info(
+        indent(
+            color(f"{ICONS['ok']} Produced {bold(str(len(transformed)))} transformed movies", GREEN)
+        )
+    )
 
     return transformed

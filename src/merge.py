@@ -9,6 +9,7 @@ from src.utils.logutils import get_logger, ICONS, color, indent, CYAN, GREEN
 
 logger = get_logger(__name__)
 
+
 def _get_latest_canonical_file(base_path: Path) -> Path:
     """
     If base_path is a file and exists -> return it.
@@ -30,11 +31,10 @@ def _get_latest_canonical_file(base_path: Path) -> Path:
     )
 
     if not candidates:
-        raise FileNotFoundError(
-            f"No movies_canonical_*.json found in {search_dir}"
-        )
+        raise FileNotFoundError(f"No movies_canonical_*.json found in {search_dir}")
 
     return candidates[0]
+
 
 def _merge_group(records: List[Dict[str, Any]]) -> Dict[str, Any]:
     """
@@ -111,9 +111,9 @@ def merge_from_canonical(movies_canonical_path: Path) -> List[Dict[str, Any]]:
     """
     canonical_path = _get_latest_canonical_file(movies_canonical_path)
 
-    logger.info(indent(
-        f"{ICONS.get('merge', '🔀')} Merging canonical records from {canonical_path.name}"
-    ))
+    logger.info(
+        indent(f"{ICONS.get('merge', '🔀')} Merging canonical records from {canonical_path.name}")
+    )
 
     with canonical_path.open("r", encoding="utf-8") as f:
         raw = json.load(f)
@@ -123,11 +123,7 @@ def merge_from_canonical(movies_canonical_path: Path) -> List[Dict[str, Any]]:
         generated_at = raw.get("generated_at")
         records = raw.get("records", [])
         if generated_at:
-            logger.info(
-                indent(
-                    color(f"Canonical data generated at {generated_at}", CYAN)
-                )
-            )
+            logger.info(indent(color(f"Canonical data generated at {generated_at}", CYAN)))
     else:
         records = raw
 
@@ -135,9 +131,7 @@ def merge_from_canonical(movies_canonical_path: Path) -> List[Dict[str, Any]]:
     for record in records:
         movie_id = record.get("movie_id")
         if not movie_id:
-            logger.warning(
-                f"{ICONS.get('err', '❌')} Skipping record without movie_id: {record}"
-            )
+            logger.warning(f"{ICONS.get('err', '❌')} Skipping record without movie_id: {record}")
             continue
         groups[movie_id].append(record)
 
@@ -148,8 +142,13 @@ def merge_from_canonical(movies_canonical_path: Path) -> List[Dict[str, Any]]:
         merged = _merge_group(group)
         merged_records.append(merged)
 
-    logger.info(indent(color(
-        f"{ICONS.get('ok', '✅')} Merge completed: produced {len(merged_records)} merged movies", GREEN)
-    ))
+    logger.info(
+        indent(
+            color(
+                f"{ICONS.get('ok', '✅')} Merge completed: produced {len(merged_records)} merged movies",
+                GREEN,
+            )
+        )
+    )
 
     return merged_records

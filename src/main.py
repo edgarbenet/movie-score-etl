@@ -6,8 +6,16 @@ from src.merge import merge_from_canonical
 from src.load import write_canonical, load
 
 from src.utils.logutils import (
-    get_logger, color, bold, indent,
-    CYAN, GREEN, YELLOW, MAGENTA, RED, ICONS
+    get_logger,
+    color,
+    bold,
+    indent,
+    CYAN,
+    GREEN,
+    YELLOW,
+    MAGENTA,
+    RED,
+    ICONS,
 )
 from src.version import __version__ as version
 
@@ -16,7 +24,7 @@ logger = get_logger("main")
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-RAW_FOLDER = os.getenv("RAW_FOLDER", "raw_new")   # default = raw
+RAW_FOLDER = os.getenv("RAW_FOLDER", "raw_new")  # default = raw
 RAW_DATA_PATH = BASE_DIR / f"data/{RAW_FOLDER}"
 CANONICAL_DATA_PATH = BASE_DIR / "data/processed/movies_canonical.json"
 MERGED_DATA_PATH = BASE_DIR / "data/processed/movies_merged.json"
@@ -34,21 +42,19 @@ def run_etl():
     logger.info(color(" [3/4] Merge", YELLOW))
     merged_records = merge_from_canonical(CANONICAL_DATA_PATH)
 
-
     logger.info(color(" [4/4] Load", YELLOW))
     load(merged_records, MERGED_DATA_PATH)
 
     logger.info(color(f"\n{ICONS['result']}  OUTPUT: {MERGED_DATA_PATH.name}", MAGENTA))
-    
+
 
 if __name__ == "__main__":
 
-    logger.info(color(bold(f"{ICONS['movie']} Starting ETL pipeline... (v{version})"), MAGENTA))   
-
+    logger.info(color(bold(f"{ICONS['movie']} Starting ETL pipeline... (v{version})"), MAGENTA))
 
     try:
         run_etl()
-        
+
     except KeyError as e:
         logger.error(color(f"{ICONS['err']} ETL failed: {e}", RED))
         sys.exit(1)

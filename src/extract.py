@@ -71,9 +71,11 @@ def extract_all_providers(input_data: Path) -> list[dict]:
         all_rows.extend(rows)
 
     logger.info(
-        indent(color(
-            f"📊 Total rows extracted: {bold(str(len(all_rows)))}",
-            GREEN,
-        ))
+        indent(
+            color(
+                f"📊 Total rows extracted: {bold(str(len(all_rows)))}",
+                GREEN,
+            )
+        )
     )
     return all_rows
