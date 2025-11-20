@@ -9,7 +9,14 @@ from typing import Tuple
 
 import pandas as pd
 import plotly.express as px
+import plotly.io as pio
 from dash import Dash, dcc, html, Input, Output
+
+# ------------------------------------------------------------------------------
+# GLOBAL PLOTLY STYLE
+# ------------------------------------------------------------------------------
+pio.templates.default = "plotly_white"  # clean light theme
+px.defaults.height = 420                # uniform chart height
 
 # ------------------------------------------------------------------------------
 # LOGGING
@@ -57,29 +64,50 @@ def _find_latest_merged_file() -> Path:
     return latest
 
 
+def _style_fig(fig, title: str | None = None):
+    """
+    Apply consistent layout styling to a Plotly figure.
+    """
+    fig.update_layout(
+        title=title or fig.layout.title.text,
+        title_x=0.03,
+        margin=dict(l=70, r=50, t=80, b=70),
+        hovermode="closest",
+        legend=dict(
+            orientation="h",
+            yanchor="bottom",
+            y=1.02,
+            xanchor="right",
+            x=1,
+            font=dict(size=14),
+        ),
+        font=dict(
+            family="system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+            size=16,  # bigger base font
+        ),
+    )
+    # Make axis tick labels a bit larger too
+    fig.update_xaxes(tickfont=dict(size=14), title_font=dict(size=16))
+    fig.update_yaxes(tickfont=dict(size=14), title_font=dict(size=16))
+    return fig
+
+
+def _format_money_axis(fig, axis: str = "y"):
+    axis_obj = f"{axis}axis"
+    fig.update_layout(
+        **{
+            axis_obj: dict(
+                tickprefix="$",
+                separatethousands=True,
+            )
+        }
+    )
+    return fig
+
+
 def load_data() -> Tuple[pd.DataFrame, Path]:
     """
     Load the latest merged JSON into a DataFrame, flattening nested structures.
-
-    Supports JSON like:
-
-    {
-      "generated_at": "...",
-      "records": [
-        {
-          "movie_id": "...",
-          "movie_title": "...",
-          "release_year": 2010,
-          "ratings": {
-            "critic": {...},
-            "audience": {...}
-          },
-          "financials": {...},
-          "providers": [...]
-        },
-        ...
-      ]
-    }
     """
     latest_file = _find_latest_merged_file()
 
@@ -101,7 +129,7 @@ def load_data() -> Tuple[pd.DataFrame, Path]:
         logger.error(msg)
         raise ValueError(msg)
 
-    # Flatten nested dicts: ratings.*, financials.*, etc.
+    # Flatten nested dictionaries: ratings.*, financials.*, etc.
     df = pd.json_normalize(records)
     logger.info(f"Loaded {len(df)} rows and {len(df.columns)} columns after normalize.")
     logger.info(f"Raw columns: {list(df.columns)}")
@@ -201,7 +229,7 @@ except Exception:
     )
     latest_file = Path("NO_DATA")
 
-# Year range
+# Year range for slider
 if df["release_year"].notna().any():
     min_year = int(df["release_year"].min())
     max_year = int(df["release_year"].max())
@@ -229,48 +257,45 @@ app.layout = html.Div(
                 html.Span("  |  "),
                 html.Span(f"{len(df)} movies"),
             ],
-            style={"marginBottom": "20px"},
+            style={"marginBottom": "20px", "fontSize": "15px"},
         ),
         html.Div(
             [
-                html.Div(
-                    [
-                        html.Label("Release year range"),
-                        dcc.RangeSlider(
-                            id="year-range",
-                            min=min_year,
-                            max=max_year,
-                            step=1,
-                            value=[min_year, max_year],
-                            marks={
-                                int(y): str(int(y))
-                                for y in range(
-                                    min_year,
-                                    max_year + 1,
-                                    max(1, (max_year - min_year) // 8 or 1),
-                                )
-                            },
-                            tooltip={"placement": "bottom", "always_visible": False},
-                        ),
-                    ],
-                    style={"marginBottom": "30px"},
-                )
-            ]
+                html.Label("Release year range", style={"fontSize": "15px"}),
+                dcc.RangeSlider(
+                    id="year-range",
+                    min=min_year,
+                    max=max_year,
+                    step=1,
+                    value=[min_year, max_year],
+                    marks={
+                        int(y): str(int(y))
+                        for y in range(
+                            min_year,
+                            max_year + 1,
+                            max(1, (max_year - min_year) // 8 or 1),
+                        )
+                    },
+                    tooltip={"placement": "bottom", "always_visible": False},
+                ),
+            ],
+            style={"marginBottom": "30px"},
         ),
         dcc.Tabs(
             id="tabs",
             value="tab-overview",
             children=[
-                dcc.Tab(label="Overview", value="tab-overview"),
-                dcc.Tab(label="Box Office vs Budget", value="tab-boxoffice"),
-                dcc.Tab(label="Ratings", value="tab-ratings"),
+                dcc.Tab(label="📊 Overview", value="tab-overview"),
+                dcc.Tab(label="💰 Box Office vs Budget", value="tab-boxoffice"),
+                dcc.Tab(label="⭐ Ratings", value="tab-ratings"),
             ],
         ),
         html.Div(id="tab-content", style={"marginTop": "20px"}),
     ],
     style={
         "fontFamily": "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-        "padding": "30px",
+        "padding": "24px 32px",
+        "backgroundColor": "#f8f9fc",
     },
 )
 
@@ -337,21 +362,35 @@ def overview_tab_content(dff: pd.DataFrame):
         nbins=min(40, max(5, max_year - min_year)),
         title="Movies per year",
     )
+    fig_hist = _style_fig(fig_hist)
 
-    # Domestic vs worldwide box office
-    fig_scatter = px.scatter(
-        dff,
-        x="domestic_box_office_gross",
-        y="box_office_gross_usd",
-        color="release_year",
-        hover_name="movie_title",
-        labels={
-            "domestic_box_office_gross": "Domestic box office (USD)",
-            "box_office_gross_usd": "Worldwide box office (USD)",
-            "release_year": "Release year",
-        },
-        title="Domestic vs worldwide box office",
+    # Bubble chart:
+    #   x = release year
+    #   y = worldwide box office
+    #   bubble size = domestic box office
+    dff_scatter = dff.dropna(
+        subset=["release_year", "box_office_gross_usd", "domestic_box_office_gross"]
     )
+
+    if dff_scatter.empty:
+        fig_scatter = px.scatter(title="No box office data available")
+    else:
+        fig_scatter = px.scatter(
+            dff_scatter,
+            x="release_year",
+            y="box_office_gross_usd",
+            size="domestic_box_office_gross",
+            size_max=40,
+            hover_name="movie_title",
+            labels={
+                "release_year": "Release year",
+                "box_office_gross_usd": "Worldwide box office (USD)",
+                "domestic_box_office_gross": "Domestic box office (USD)",
+            },
+            title="Worldwide box office vs release year\n(bubble size = domestic box office)",
+        )
+        fig_scatter = _format_money_axis(fig_scatter, "y")
+    fig_scatter = _style_fig(fig_scatter)
 
     # Top by worldwide box office
     dff_top = (
@@ -359,14 +398,19 @@ def overview_tab_content(dff: pd.DataFrame):
         .sort_values("box_office_gross_usd", ascending=False)
         .head(15)
     )
-    fig_top = px.bar(
-        dff_top,
-        x="movie_title",
-        y="box_office_gross_usd",
-        text="box_office_gross_usd",
-        title="Top movies by worldwide box office",
-    )
-    fig_top.update_layout(xaxis_tickangle=-45)
+    if dff_top.empty:
+        fig_top = px.bar(title="No worldwide box office data available")
+    else:
+        fig_top = px.bar(
+            dff_top,
+            x="movie_title",
+            y="box_office_gross_usd",
+            text="box_office_gross_usd",
+            title="Top movies by worldwide box office",
+        )
+        fig_top.update_layout(xaxis_tickangle=-45)
+        fig_top = _format_money_axis(fig_top, "y")
+    fig_top = _style_fig(fig_top)
 
     return html.Div(
         [
@@ -393,20 +437,23 @@ def boxoffice_tab_content(dff: pd.DataFrame):
         dff_roi.dropna(subset=["roi"]).sort_values("roi", ascending=False).head(15)
     )
 
-    fig_roi = px.bar(
-        dff_roi_sorted,
-        x="movie_title",
-        y="roi",
-        hover_data=["box_office_gross_usd", "production_budget_usd"],
-        title="Top ROI (Box Office / Budget)",
-    )
-    fig_roi.update_layout(xaxis_tickangle=-45)
+    if dff_roi_sorted.empty:
+        fig_roi = px.bar(title="No movies with both budget and worldwide box office")
+    else:
+        fig_roi = px.bar(
+            dff_roi_sorted,
+            x="movie_title",
+            y="roi",
+            hover_data=["box_office_gross_usd", "production_budget_usd"],
+            title="Top ROI (Box Office / Budget)",
+        )
+        fig_roi.update_layout(xaxis_tickangle=-45)
+    fig_roi = _style_fig(fig_roi)
 
     fig_budget_scatter = px.scatter(
         dff_roi,
         x="production_budget_usd",
         y="box_office_gross_usd",
-        color="release_year",
         hover_name="movie_title",
         labels={
             "production_budget_usd": "Production budget (USD)",
@@ -414,6 +461,9 @@ def boxoffice_tab_content(dff: pd.DataFrame):
         },
         title="Budget vs worldwide box office",
     )
+    fig_budget_scatter = _format_money_axis(fig_budget_scatter, "x")
+    fig_budget_scatter = _format_money_axis(fig_budget_scatter, "y")
+    fig_budget_scatter = _style_fig(fig_budget_scatter)
 
     return html.Div(
         [
@@ -437,19 +487,27 @@ def ratings_tab_content(dff: pd.DataFrame):
         },
         title="Critic vs audience scores",
     )
+    fig_ratings = _style_fig(fig_ratings)
 
     dff_top_audience = (
         dff.dropna(subset=["audience_avg_score"])
         .sort_values("audience_avg_score", ascending=False)
         .head(15)
     )
-    fig_top_audience = px.bar(
-        dff_top_audience,
-        x="movie_title",
-        y="audience_avg_score",
-        title="Top movies by audience score",
-    )
-    fig_top_audience.update_layout(xaxis_tickangle=-45)
+    if dff_top_audience.empty:
+        fig_top_audience = px.bar(title="No audience score data available")
+    else:
+        # Color bars by audience score
+        fig_top_audience = px.bar(
+            dff_top_audience,
+            x="movie_title",
+            y="audience_avg_score",
+            color="audience_avg_score",
+            color_continuous_scale="Blues",
+            title="Top movies by audience score",
+        )
+        fig_top_audience.update_layout(xaxis_tickangle=-45)
+    fig_top_audience = _style_fig(fig_top_audience)
 
     return html.Div(
         [
