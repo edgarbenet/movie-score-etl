@@ -3,7 +3,7 @@ from pathlib import Path
 from src.readers import extract_from_path
 from src.transform import transform
 from src.merge import merge_from_canonical
-from src.load import load
+from src.load import write_canonical, load
 
 from src.utils.logutils import (
     get_logger, color, bold, indent,
@@ -64,11 +64,11 @@ def extract_all_providers(input_data: Path) -> list[dict]:
 def run_etl():
 
     logger.info(color(" [1/4] Extract", YELLOW))
-    raw = extract_all_providers(RAW_DATA_DIR)
+    all_raw_rows = extract_all_providers(RAW_DATA_DIR)
 
     logger.info(color(" [2/4] Transform", YELLOW))
-    transformed = transform(raw)
-    load(transformed, CANONICAL_DATA_PATH)
+    canonical_records = transform(all_raw_rows)
+    write_canonical(canonical_records, CANONICAL_DATA_PATH)
 
     logger.info(color(" [3/4] Merge", YELLOW))
     merged_records = merge_from_canonical(CANONICAL_DATA_PATH)
@@ -81,9 +81,12 @@ def run_etl():
     
 
 if __name__ == "__main__":
-    logger.info(color(bold(f"{ICONS['movie']} Starting ETL pipeline..."), MAGENTA))    
+
+    logger.info(color(bold(f"{ICONS['movie']} Starting ETL pipeline..."), MAGENTA))   
+
     try:
         run_etl()
+        
     except KeyError as e:
         logger.error(color(f"{ICONS['err']} ETL failed: {e}", RED))
         sys.exit(1)
