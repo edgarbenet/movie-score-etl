@@ -87,7 +87,7 @@ def transform(data_raw: list[dict]) -> list[dict]:
         # critic_score -> float in [0,1] from percentage
         critic_score_ratio_raw = get_first(row, FIELD_MAP.get("critic_score", []))
         if critic_score_ratio_raw not in (None, ""):
-            critic_score = float(critic_score_ratio_raw) / 100
+            critic_score = float(critic_score_ratio_raw) / 10
         else:
             critic_score = None
 
