@@ -1,0 +1,53 @@
+[
+    {
+        "title": "Inception",
+        "year": "2010",
+        "audience_average_score": 9.1,
+        "total_audience_ratings": 1500000,
+        "domestic_box_office_gross": 292576195
+    },
+    {
+        "title": "The Dark Knight",
+        "year": "2008",
+        "audience_average_score": 9.4,
+        "total_audience_ratings": 2200000,
+        "domestic_box_office_gross": 533345358
+    },
+    {
+        "title": "Parasite",
+        "year": "2019",
+        "audience_average_score": 9.0,
+        "total_audience_ratings": 800000,
+        "domestic_box_office_gross": 53369749
+    },
+    {
+        "title": "Interstellar",
+        "year": 2014,
+        "audience_average_score": 9.2,
+        "total_audience_ratings": 2100000
+    },
+    {
+        "title": "Tenet",
+        "year": 2020,
+        "audience_average_score": 7.8,
+        "total_audience_ratings": 550000
+    },
+    {
+        "title": "Dunkirk",
+        "year": 2017,
+        "audience_average_score": 8.5,
+        "total_audience_ratings": 430000
+    },
+    {
+        "title": "The Prestige",
+        "year": 2006,
+        "audience_average_score": 8.9,
+        "total_audience_ratings": 600000
+    },
+    {
+        "title": "Oppenheimer",
+        "year": 2023,
+        "audience_average_score": 9.6,
+        "total_audience_ratings": 3100000
+    }
+]

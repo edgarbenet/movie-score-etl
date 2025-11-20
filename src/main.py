@@ -15,7 +15,7 @@ logger = get_logger("main")
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-RAW_FOLDER = os.getenv("RAW_FOLDER", "raw")   # default = raw
+RAW_FOLDER = os.getenv("RAW_FOLDER", "raw_new")   # default = raw
 RAW_DATA_PATH = BASE_DIR / f"data/{RAW_FOLDER}"
 CANONICAL_DATA_PATH = BASE_DIR / "data/processed/movies_canonical.json"
 MERGED_DATA_PATH = BASE_DIR / "data/processed/movies_merged.json"
