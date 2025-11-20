@@ -5,7 +5,7 @@ from collections import defaultdict
 from pathlib import Path
 from typing import Any, Dict, List
 
-from src.utils.logutils import get_logger, ICONS, color, indent, CYAN
+from src.utils.logutils import get_logger, ICONS, color, indent, CYAN, GREEN
 
 logger = get_logger(__name__)
 
@@ -111,9 +111,9 @@ def merge_from_canonical(movies_canonical_path: Path) -> List[Dict[str, Any]]:
     """
     canonical_path = _get_latest_canonical_file(movies_canonical_path)
 
-    logger.info(
-        f"{ICONS.get('merge', '🔀')} Merging canonical records from {canonical_path}"
-    )
+    logger.info(indent(
+        f"{ICONS.get('merge', '🔀')} Merging canonical records from {canonical_path.name}"
+    ))
 
     with canonical_path.open("r", encoding="utf-8") as f:
         raw = json.load(f)
@@ -131,8 +131,6 @@ def merge_from_canonical(movies_canonical_path: Path) -> List[Dict[str, Any]]:
     else:
         records = raw
 
-    logger.info(f"Found {len(records)} canonical records before grouping")
-
     groups: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     for record in records:
         movie_id = record.get("movie_id")
@@ -143,15 +141,15 @@ def merge_from_canonical(movies_canonical_path: Path) -> List[Dict[str, Any]]:
             continue
         groups[movie_id].append(record)
 
-    logger.info(f"Grouped into {len(groups)} movies (by movie_id)")
+    logger.info(indent(color(f"Grouped into {len(groups)} movies (by movie_id)", CYAN)))
 
     merged_records: List[Dict[str, Any]] = []
     for movie_id, group in groups.items():
         merged = _merge_group(group)
         merged_records.append(merged)
 
-    logger.info(
-        f"{ICONS.get('ok', '✅')} Merge completed: produced {len(merged_records)} merged movies"
-    )
+    logger.info(indent(color(
+        f"{ICONS.get('ok', '✅')} Merge completed: produced {len(merged_records)} merged movies", GREEN)
+    ))
 
     return merged_records

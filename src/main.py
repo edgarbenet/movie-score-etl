@@ -9,6 +9,7 @@ from src.utils.logutils import (
     get_logger, color, bold, indent,
     CYAN, GREEN, YELLOW, MAGENTA, RED, ICONS
 )
+from src.version import __version__ as version
 
 logger = get_logger("main")
 
@@ -42,7 +43,8 @@ def run_etl():
 
 if __name__ == "__main__":
 
-    logger.info(color(bold(f"{ICONS['movie']} Starting ETL pipeline..."), MAGENTA))   
+    logger.info(color(bold(f"{ICONS['movie']} Starting ETL pipeline... (v{version})"), MAGENTA))   
+
 
     try:
         run_etl()
