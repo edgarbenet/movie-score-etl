@@ -11,7 +11,7 @@ logger = get_logger(__name__)
 def to_presentation_model(record: dict) -> dict:
     """
     Convert a flat canonical movie record into a grouped, more readable structure.
-    This does NOT change internal canonical fields — only the final output format.
+    Only reshapes data — does not change meaning.
     """
 
     return {
@@ -38,53 +38,63 @@ def to_presentation_model(record: dict) -> dict:
         "providers": record.get("providers", []),
     }
 
-def build_output_filename(output_dir: Path, prefix: str = "movies_merged") -> Path:
+def build_output_filename(output_dir: Path, prefix: str = "movies_merged",) -> Path:
     """
-    Generate a filename like:
-      movies_merged_2025-11-20.json
-    If it already exists, create:
-      movies_merged_2025-11-20-2.json
-      movies_merged_2025-11-20-3.json
-    etc.
+    Always generate a filename with the current date:
+        movies_merged_2025-11-20.json
+
+    If it exists → overwrite it.
     """
     date_str = datetime.now().strftime("%Y-%m-%d")
-    base_name = f"{prefix}_{date_str}.json"
-    candidate = output_dir / base_name
-
-    # If no collision → return it
-    if not candidate.exists():
-        return candidate
-
-    # Else add -2, -3, ...
-    counter = 2
-    while True:
-        name = f"{prefix}_{date_str}-{counter}.json"
-        candidate = output_dir / name
-        if not candidate.exists():
-            return candidate
-        counter += 1
+    filename = f"{prefix}_{date_str}.json"
+    return output_dir / filename
 
 def write_canonical(records: list[dict], output_path: Path) -> None:
     """
-    Write flat canonical records (no grouping, used as input for merge).
+    Write canonical records for the day.
+    Always overwrites if run again on the same date.
     """
-    with output_path.open("w", encoding="utf-8") as f:
-        json.dump(records, f, indent=2, ensure_ascii=False)
+    final_path = build_output_filename(
+        output_dir=output_path.parent,
+        prefix="movies_canonical",
+    )
+
+    wrapper = {
+        "generated_at": datetime.now().isoformat(),
+        "records": records,
+    }
+
+    with final_path.open("w", encoding="utf-8") as f:
+        json.dump(wrapper, f, indent=2, ensure_ascii=False)
+
+    logger.info(indent(color(
+        f"{ICONS['ok']} Wrote canonical data → {final_path.name}",
+        GREEN
+    )))
 
 def load(records: list[dict], output_path: Path) -> None:
     """
-    Write processed records to the final output.
+    Write merged records for the day.
+    Always overwrites if run again on the same date.
     """
-    final_path = build_output_filename(output_path.parent)
-    
+    final_path = build_output_filename(
+        output_dir=output_path.parent,
+        prefix="movies_merged",
+    )
+
     logger.info(indent(color(
         f"{ICONS['load']} Writing {bold(str(len(records)))} records → {final_path.name}",
         CYAN,
     )))
-    
+
     shaped = [to_presentation_model(r) for r in records]
 
+    wrapper = {
+        "generated_at": datetime.now().isoformat(),
+        "records": shaped,
+    }
+
     with final_path.open("w", encoding="utf-8") as f:
-        json.dump(shaped, f, indent=2, ensure_ascii=False)
+        json.dump(wrapper, f, indent=2, ensure_ascii=False)
 
     logger.info(indent(color(f"{ICONS['ok']} File written", GREEN)))

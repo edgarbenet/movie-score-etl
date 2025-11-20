@@ -3,335 +3,155 @@ from __future__ import annotations
 import json
 from collections import defaultdict
 from pathlib import Path
-from typing import Any, Dict, List, Tuple
+from typing import Any, Dict, List
 
-from src.utils.logutils import (
-    get_logger,
-    ICONS,
-    CYAN,
-    YELLOW,
-    GREEN,
-    color,
-    indent,
-    bold,
-)
+from src.utils.logutils import get_logger, ICONS, color, indent, CYAN
 
 logger = get_logger(__name__)
 
-# ---------------------------------------------------------------------------
-# 1) Generic merge policies (fallback)
-#    - "first": take the first non-None value
-#    - "max":   take the largest numeric value (fallback to first non-None)
-# ---------------------------------------------------------------------------
-MERGE_POLICIES: Dict[str, str] = {
-    "movie_title": "first",
-    "release_year": "first",
-
-    # Scores
-    "critic_score": "first",            # provider1 wins via FIELD_PROVIDER_PRIORITY
-    "top_critic_score": "max",
-    "audience_avg_score": "first",      # provider2 wins via FIELD_PROVIDER_PRIORITY
-
-    # Counts
-    "total_critic_ratings": "max",
-    "total_audience_ratings": "max",
-
-    # Financials
-    "domestic_box_office_gross": "max",   # provider3_domestic > provider2 > max fallback
-    "box_office_gross_usd": "first",      # provider3_international only; otherwise first
-    "production_budget_usd": "first",     # provider3_financials only; otherwise first
-    "marketing_spend_usd": "first",       # provider3_financials only; otherwise first
-}
-
-
-# ---------------------------------------------------------------------------
-# 2) Field → provider priority rules
-# ---------------------------------------------------------------------------
-FIELD_PROVIDER_PRIORITY: Dict[str, List[str]] = {
-    # domestic_box_office_gross:
-    #   prefer provider3_domestic.domestic_box_office_gross
-    #   fallback to provider2.domestic_box_office_gross
-    "domestic_box_office_gross": [
-        "provider3_domestic",
-        "provider2",
-    ],
-
-    # box_office_gross_usd:
-    #   take from provider3_international.box_office_gross_usd only
-    "box_office_gross_usd": [
-        "provider3_international",
-    ],
-
-    # audience_avg_score: from provider2
-    "audience_avg_score": [
-        "provider2",
-    ],
-
-    # critic_score: from provider1
-    "critic_score": [
-        "provider1",
-    ],
-
-    # production_budget_usd, marketing_spend_usd: from provider3_financials
-    "production_budget_usd": [
-        "provider3_financials",
-    ],
-    "marketing_spend_usd": [
-        "provider3_financials",
-    ],
-}
-
-
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _merge_values_generic(values: List[Any], policy: str) -> Any:
-    """Apply a simple generic merge policy to a list of values."""
-    non_null = [v for v in values if v is not None]
-    if not non_null:
-        return None
-
-    if policy == "first":
-        return non_null[0]
-
-    if policy == "max":
-        numeric = [v for v in non_null if isinstance(v, (int, float))]
-        if numeric:
-            return max(numeric)
-        return non_null[0]
-
-    # Default fallback
-    return non_null[0]
-
-
-def _log_decision(
-    movie_id: str,
-    key: str,
-    chosen_value: Any,
-    chosen_provider: str | None,
-    reason: str,
-    candidates: List[Tuple[str | None, Any]],
-) -> None:
+def _get_latest_canonical_file(base_path: Path) -> Path:
     """
-    Log one compact debug line per field.
-
-    - Always logs which provider/value won and which rule.
-    - Only lists candidates if there is a real choice (>= 2 distinct values).
+    If base_path is a file and exists -> return it.
+    Otherwise, look for the newest movies_canonical_*.json
+    in base_path's directory.
     """
-    if chosen_value is None:
-        return
+    # Case 1: caller passed an existing file -> use it
+    if base_path.is_file():
+        return base_path
 
-    distinct_values = {v for _, v in candidates if v is not None}
-    base_msg = (
-        f"{ICONS.get('merge', '🔀')} "
-        f"[{movie_id}] {bold(key)} ← {bold(str(chosen_value))} "
-        f"from {bold(chosen_provider or 'unknown')} "
-        f"({reason})"
+    # Case 2: caller passed a non-existing file path
+    # e.g. data/processed/movies_canonical.json
+    search_dir = base_path.parent if base_path.suffix else base_path
+
+    candidates = sorted(
+        search_dir.glob("movies_canonical_*.json"),
+        key=lambda p: p.stat().st_mtime,
+        reverse=True,
     )
-
-    if len(distinct_values) > 1:
-        cand_str = ", ".join(
-            f"{p or 'unknown'}={v}" for p, v in candidates if v is not None
-        )
-        msg = f"{base_msg}; candidates: {cand_str}"
-    else:
-        msg = base_msg
-
-    logger.debug(indent(color(msg, YELLOW), 2))
-
-
-def _merge_value_for_field(
-    movie_id: str,
-    key: str,
-    records: List[Dict[str, Any]],
-) -> Any:
-    """
-    Merge a single field across all records for a movie.
-
-    1) If FIELD_PROVIDER_PRIORITY has this field:
-       - Try preferred providers in order, return first non-None.
-    2) Otherwise, or if none of the preferred providers has a value:
-       - Use MERGE_POLICIES (generic "first"/"max" policy).
-    """
-    # All non-null candidates for this field
-    candidates: List[Tuple[str | None, Any]] = [
-        (r.get("provider"), r.get(key))
-        for r in records
-        if r.get(key) is not None
-    ]
 
     if not candidates:
-        # Nothing at all for this field
-        return None
+        raise FileNotFoundError(
+            f"No movies_canonical_*.json found in {search_dir}"
+        )
 
-    chosen_value: Any
-    chosen_provider: str | None = None
-    reason: str
-
-    # 1) Provider-specific precedence
-    preferred_providers = FIELD_PROVIDER_PRIORITY.get(key)
-    if preferred_providers:
-        for provider_name in preferred_providers:
-            for prov, value in candidates:
-                if prov == provider_name and value is not None:
-                    chosen_value = value
-                    chosen_provider = provider_name
-                    reason = f"provider priority {preferred_providers}"
-                    _log_decision(
-                        movie_id,
-                        key,
-                        chosen_value,
-                        chosen_provider,
-                        reason,
-                        candidates,
-                    )
-                    return chosen_value
-        # Fall through to generic policy if none matched
-
-    # 2) Generic merge policy
-    policy = MERGE_POLICIES.get(key, "first")
-    chosen_value = _merge_values_generic([v for _, v in candidates], policy)
-    if chosen_value is None:
-        return None
-
-    # Find which provider supplied the chosen_value (first match)
-    for prov, value in candidates:
-        if value == chosen_value:
-            chosen_provider = prov
-            break
-
-    reason = f"policy={policy}"
-    _log_decision(
-        movie_id,
-        key,
-        chosen_value,
-        chosen_provider,
-        reason,
-        candidates,
-    )
-    return chosen_value
-
+    return candidates[0]
 
 def _merge_group(records: List[Dict[str, Any]]) -> Dict[str, Any]:
-    """Merge all provider records for a single movie_id into one dict."""
+    """
+    Very simple merge strategy for a list of records with the same movie_id.
+
+    Rules:
+    - Start from an empty dict with just movie_id.
+    - For each record:
+        - Track provider in `providers`.
+        - For each (key, value):
+            - Ignore "movie_id" and "provider".
+            - Ignore None values.
+            - If key not set yet → take the value.
+            - If key is set and both values are numeric → keep the max.
+            - Otherwise → keep the existing value (first non-None wins).
+    """
     if not records:
         return {}
 
-    merged: Dict[str, Any] = {}
-
     movie_id = records[0].get("movie_id")
-    movie_title = records[0].get("movie_title") or "Unknown title"
-    merged["movie_id"] = movie_id
+    merged: Dict[str, Any] = {"movie_id": movie_id}
+    providers: set[str] = set()
 
-    logger.info(
-        indent(
-            color(
-                f"{ICONS.get('merge', '🔀')} Merging {bold(str(len(records)))} records "
-                f"for movie_id={movie_id} ('{movie_title}')",
-                CYAN,
-            ),
-            1,
-        )
-    )
+    for record in records:
+        if record.get("provider"):
+            providers.add(record["provider"])
 
-    # Collect all keys across records
-    all_keys = set().union(*(r.keys() for r in records))
-    # These are handled separately
-    all_keys.discard("movie_id")
-    all_keys.discard("provider")
+        for key, value in record.items():
+            if key in ("movie_id", "provider"):
+                continue
+            if value is None:
+                continue
 
-    for key in sorted(all_keys):
-        merged[key] = _merge_value_for_field(movie_id, key, records) # type: ignore
+            if key not in merged or merged[key] is None:
+                merged[key] = value
+                continue
 
-    # Provenance: which providers contributed any record for this movie_id
-    providers = sorted({r["provider"] for r in records if r.get("provider")})
-    merged["providers"] = providers
+            existing = merged[key]
 
-    logger.info(
-        indent(
-            color(
-                f"{ICONS.get('ok', '✅')} Merged movie "
-                f"{bold(str(merged.get('movie_title')))} "
-                f"({movie_id}) from: {', '.join(providers)}",
-                GREEN,
-            ),
-            2,
-        )
-    )
+            # If both are numeric, keep the max
+            if isinstance(existing, (int, float)) and isinstance(value, (int, float)):
+                if value > existing:
+                    merged[key] = value
+            # Otherwise keep existing (first non-None wins)
 
+    merged["providers"] = sorted(providers)
     return merged
 
 
 def merge_from_canonical(movies_canonical_path: Path) -> List[Dict[str, Any]]:
     """
-    Load movies_canonical.json and merge records by movie_id.
+    Load canonical data and merge records by movie_id.
 
-    - Input: JSON file with a list[dict], each record including:
-        - movie_id
-        - provider
-        - canonical fields (scores, counts, financials...)
-    - Output: list[dict] with one record per movie_id and:
-        - merged fields according to FIELD_PROVIDER_PRIORITY + MERGE_POLICIES
-        - providers: sorted list of provider names that contributed
+    Supports:
+    - A direct file path (old style): data/processed/movies_canonical.json
+    - Or, if that file does NOT exist, automatically uses the latest:
+        data/processed/movies_canonical_*.json
+
+    Also supports two JSON shapes:
+    1) Old:
+       [
+         { ...movie record... },
+         { ...movie record... }
+       ]
+
+    2) New (wrapped):
+       {
+         "generated_at": "2025-11-19T20:10:00",
+         "records": [
+           { ...movie record... },
+           { ...movie record... }
+         ]
+       }
     """
-    logger.info(
-        indent(
-            color(
-                f"{ICONS.get('merge', '🔀')} Merging canonical records from: "
-                f"{movies_canonical_path}",
-                CYAN,
-            ),
-            1,
-        )
-    )
-
-    with movies_canonical_path.open("r", encoding="utf-8") as f:
-        records: List[Dict[str, Any]] = json.load(f)
+    canonical_path = _get_latest_canonical_file(movies_canonical_path)
 
     logger.info(
-        indent(
-            f"Found {bold(str(len(records)))} canonical records before grouping",
-            1,
-        )
+        f"{ICONS.get('merge', '🔀')} Merging canonical records from {canonical_path}"
     )
+
+    with canonical_path.open("r", encoding="utf-8") as f:
+        raw = json.load(f)
+
+    # Handle wrapper {"generated_at": ..., "records": [...]}
+    if isinstance(raw, dict):
+        generated_at = raw.get("generated_at")
+        records = raw.get("records", [])
+        if generated_at:
+            logger.info(
+                indent(
+                    color(f"Canonical data generated at {generated_at}", CYAN)
+                )
+            )
+    else:
+        records = raw
+
+    logger.info(f"Found {len(records)} canonical records before grouping")
 
     groups: Dict[str, List[Dict[str, Any]]] = defaultdict(list)
     for record in records:
         movie_id = record.get("movie_id")
         if not movie_id:
             logger.warning(
-                indent(
-                    color(
-                        f"{ICONS.get('err', '❌')} Skipping record without movie_id: {record}",
-                        YELLOW,
-                    ),
-                    1,
-                )
+                f"{ICONS.get('err', '❌')} Skipping record without movie_id: {record}"
             )
             continue
         groups[movie_id].append(record)
 
-    logger.info(
-        indent(
-            f"Grouped into {bold(str(len(groups)))} movies (by movie_id)",
-            1,
-        )
-    )
+    logger.info(f"Grouped into {len(groups)} movies (by movie_id)")
 
     merged_records: List[Dict[str, Any]] = []
     for movie_id, group in groups.items():
-        merged_records.append(_merge_group(group))
+        merged = _merge_group(group)
+        merged_records.append(merged)
 
     logger.info(
-        indent(
-            color(
-                f"{ICONS.get('ok', '✅')} Merge completed: produced "
-                f"{bold(str(len(merged_records)))} merged movies",
-                GREEN,
-            ),
-            1,
-        )
+        f"{ICONS.get('ok', '✅')} Merge completed: produced {len(merged_records)} merged movies"
     )
 
     return merged_records
