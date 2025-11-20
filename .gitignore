@@ -5,3 +5,7 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+
+# Ignore all generated JSON outputs except examples
+data/processed/*.json
+!data/processed/examples/*.json
