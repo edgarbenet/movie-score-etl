@@ -1,0 +1,86 @@
+[
+  {
+    "movie_id": "75d9e8d5",
+    "movie_title": "Inception",
+    "release_year": 2010,
+    "ratings": {
+      "critic": {
+        "score": 0.87,
+        "top_score": 8.1,
+        "total_ratings": 450
+      },
+      "audience": {
+        "score": 9.1,
+        "total_ratings": 1500000
+      }
+    },
+    "financials": {
+      "domestic_box_office_usd": 292576195,
+      "worldwide_box_office_usd": 535700000,
+      "production_budget_usd": 160000000,
+      "marketing_spend_usd": 100000000
+    },
+    "providers": [
+      "provider1",
+      "provider2",
+      "provider3_domestic",
+      "provider3_financials",
+      "provider3_international"
+    ]
+  },
+  {
+    "movie_id": "297fadc8",
+    "movie_title": "The Dark Knight",
+    "release_year": 2008,
+    "ratings": {
+      "critic": {
+        "score": 0.94,
+        "top_score": 8.6,
+        "total_ratings": 350
+      },
+      "audience": {
+        "score": 9.4,
+        "total_ratings": 2200000
+      }
+    },
+    "financials": {
+      "domestic_box_office_usd": 533345358,
+      "worldwide_box_office_usd": 533345358,
+      "production_budget_usd": 185000000,
+      "marketing_spend_usd": 150000000
+    },
+    "providers": [
+      "provider1",
+      "provider2",
+      "provider3_domestic",
+      "provider3_financials",
+      "provider3_international"
+    ]
+  },
+  {
+    "movie_id": "ec475aea",
+    "movie_title": "Parasite",
+    "release_year": 2019,
+    "ratings": {
+      "critic": {
+        "score": 0.99,
+        "top_score": 9.5,
+        "total_ratings": 475
+      },
+      "audience": {
+        "score": 9.0,
+        "total_ratings": 800000
+      }
+    },
+    "financials": {
+      "domestic_box_office_usd": 53369749,
+      "worldwide_box_office_usd": null,
+      "production_budget_usd": null,
+      "marketing_spend_usd": null
+    },
+    "providers": [
+      "provider1",
+      "provider2"
+    ]
+  }
+]
