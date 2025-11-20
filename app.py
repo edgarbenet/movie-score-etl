@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import re
 from pathlib import Path
 from typing import Tuple
@@ -10,7 +11,18 @@ import pandas as pd
 import plotly.express as px
 from dash import Dash, dcc, html, Input, Output
 
-# ---------- CONFIG ----------
+# ------------------------------------------------------------------------------
+# LOGGING
+# ------------------------------------------------------------------------------
+logging.basicConfig(
+    level=logging.INFO,
+    format="[%(levelname)s] %(asctime)s - %(name)s - %(message)s",
+)
+logger = logging.getLogger("movie_dashboard")
+
+# ------------------------------------------------------------------------------
+# CONFIG
+# ------------------------------------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent
 PROCESSED_DIR = BASE_DIR / "data" / "processed"
 MERGED_PREFIX = "movies_merged_"
@@ -18,15 +30,21 @@ MERGED_PREFIX = "movies_merged_"
 
 def _find_latest_merged_file() -> Path:
     """
-    Find the latest movies_merged_YYYY-MM-DD.json file by date
-    in the filename. Raise a clear error if none found.
+    Find the latest movies_merged_YYYY-MM-DD.json file by date in the filename.
     """
+    if not PROCESSED_DIR.exists():
+        msg = f"Processed directory does not exist: {PROCESSED_DIR}"
+        logger.error(msg)
+        raise FileNotFoundError(msg)
+
     candidates = list(PROCESSED_DIR.glob(f"{MERGED_PREFIX}*.json"))
     if not candidates:
-        raise FileNotFoundError(
+        msg = (
             f"No {MERGED_PREFIX}*.json files found in {PROCESSED_DIR}. "
             "Run the ETL pipeline first."
         )
+        logger.error(msg)
+        raise FileNotFoundError(msg)
 
     def extract_date(p: Path):
         m = re.search(r"(\d{4})-(\d{2})-(\d{2})", p.name)
@@ -35,57 +53,89 @@ def _find_latest_merged_file() -> Path:
         return tuple(int(x) for x in m.groups())
 
     latest = max(candidates, key=extract_date)
+    logger.info(f"Using merged file: {latest}")
     return latest
 
 
 def load_data() -> Tuple[pd.DataFrame, Path]:
     """
-    Load the latest merged JSON file into a DataFrame.
+    Load the latest merged JSON into a DataFrame, flattening nested structures.
 
-    Expected structure of the JSON:
+    Supports JSON like:
+
+    {
+      "generated_at": "...",
+      "records": [
         {
-          "generated_at": "...",
-          "records": [ { movie fields... }, ... ]
-        }
-    or simply a list of records: [ {...}, {...} ]
+          "movie_id": "...",
+          "movie_title": "...",
+          "release_year": 2010,
+          "ratings": {
+            "critic": {...},
+            "audience": {...}
+          },
+          "financials": {...},
+          "providers": [...]
+        },
+        ...
+      ]
+    }
     """
     latest_file = _find_latest_merged_file()
 
+    logger.info(f"Loading data from {latest_file}")
     with latest_file.open("r", encoding="utf-8") as f:
         raw = json.load(f)
 
     if isinstance(raw, dict) and "records" in raw:
         records = raw["records"]
+        logger.info("Detected wrapper object with 'records' field.")
     elif isinstance(raw, list):
         records = raw
+        logger.info("Detected top-level list of records.")
     else:
-        raise ValueError(
+        msg = (
             f"Unexpected JSON structure in {latest_file}. "
             "Expected a dict with 'records' or a list of records."
         )
+        logger.error(msg)
+        raise ValueError(msg)
 
-    df = pd.DataFrame(records)
+    # Flatten nested dicts: ratings.*, financials.*, etc.
+    df = pd.json_normalize(records)
+    logger.info(f"Loaded {len(df)} rows and {len(df.columns)} columns after normalize.")
+    logger.info(f"Raw columns: {list(df.columns)}")
 
-    # Ensure expected columns exist so the rest of the code doesn't crash
-    expected_columns = [
-        "movie_id",
-        "movie_title",
-        "release_year",
-        "critic_score",
-        "top_critic_score",
-        "audience_avg_score",
-        "total_critic_ratings",
-        "total_audience_ratings",
-        "domestic_box_office_gross",
-        "box_office_gross_usd",
-        "production_budget_usd",
-        "marketing_spend_usd",
-    ]
-    for col in expected_columns:
+    # Map nested columns to flat names used in the plots
+    rename_map = {
+        "critic_score": "ratings.critic.score",
+        "top_critic_score": "ratings.critic.top_score",
+        "total_critic_ratings": "ratings.critic.total_ratings",
+        "audience_avg_score": "ratings.audience.score",
+        "total_audience_ratings": "ratings.audience.total_ratings",
+        "domestic_box_office_gross": "financials.domestic_box_office_usd",
+        "box_office_gross_usd": "financials.worldwide_box_office_usd",
+        "production_budget_usd": "financials.production_budget_usd",
+        "marketing_spend_usd": "financials.marketing_spend_usd",
+    }
+
+    for new_col, original_col in rename_map.items():
+        if original_col in df.columns:
+            df[new_col] = df[original_col]
+        else:
+            logger.warning(
+                f"Expected column '{original_col}' not found; "
+                f"filling '{new_col}' with NA."
+            )
+            df[new_col] = pd.NA
+
+    # Ensure core columns exist
+    for col in ["movie_title", "release_year"]:
         if col not in df.columns:
+            logger.warning(f"Missing column {col}, filling with NA.")
             df[col] = pd.NA
 
-    # Coerce year + numeric columns
+    # Type coercion
     df["release_year"] = pd.to_numeric(df["release_year"], errors="coerce")
 
     numeric_cols = [
@@ -102,24 +152,66 @@ def load_data() -> Tuple[pd.DataFrame, Path]:
     for col in numeric_cols:
         df[col] = pd.to_numeric(df[col], errors="coerce")
 
+    # Drop rows without title
+    before = len(df)
+    df = df[df["movie_title"].notna()]
+    after = len(df)
+    if before != after:
+        logger.info(f"Dropped {before - after} rows with empty movie_title.")
+
+    logger.info(f"Final dataframe shape: {df.shape}")
+    logger.info(
+        "Sample rows:\n"
+        + str(
+            df[
+                [
+                    "movie_title",
+                    "release_year",
+                    "critic_score",
+                    "audience_avg_score",
+                    "domestic_box_office_gross",
+                    "box_office_gross_usd",
+                    "production_budget_usd",
+                ]
+            ].head()
+        )
+    )
+
     return df, latest_file
 
 
-# ---------- LOAD DATA ----------
-df, latest_file = load_data()
+# ------------------------------------------------------------------------------
+# LOAD DATA
+# ------------------------------------------------------------------------------
+try:
+    df, latest_file = load_data()
+except Exception:
+    logger.exception("Failed to load data for dashboard.")
+    df = pd.DataFrame(
+        columns=[
+            "movie_title",
+            "release_year",
+            "critic_score",
+            "audience_avg_score",
+            "domestic_box_office_gross",
+            "box_office_gross_usd",
+            "production_budget_usd",
+            "marketing_spend_usd",
+        ]
+    )
+    latest_file = Path("NO_DATA")
 
-# Drop rows without a title – not useful to visualize
-if "movie_title" in df.columns:
-    df = df[df["movie_title"].notna()]
-
+# Year range
 if df["release_year"].notna().any():
     min_year = int(df["release_year"].min())
     max_year = int(df["release_year"].max())
 else:
-    # Fallback if no years present
     min_year, max_year = 1980, 2025
+    logger.warning("No valid release_year values; using 1980–2025 fallback.")
 
-# ---------- DASH APP ----------
+# ------------------------------------------------------------------------------
+# DASH APP
+# ------------------------------------------------------------------------------
 app = Dash(__name__)
 app.title = "🎬 Movie Score ETL – Dashboard"
 
@@ -129,7 +221,11 @@ app.layout = html.Div(
         html.Div(
             [
                 html.Span("Source file: "),
-                html.Code(str(latest_file.relative_to(BASE_DIR))),
+                html.Code(
+                    str(latest_file.relative_to(BASE_DIR))
+                    if latest_file.exists()
+                    else "NO_DATA"
+                ),
                 html.Span("  |  "),
                 html.Span(f"{len(df)} movies"),
             ],
@@ -190,44 +286,59 @@ def filter_by_year(dframe: pd.DataFrame, year_range):
     ]
 
 
-# ---------- TAB CONTENT CALLBACK ----------
+# ------------------------------------------------------------------------------
+# CALLBACK
+# ------------------------------------------------------------------------------
 @app.callback(
     Output("tab-content", "children"),
     Input("tabs", "value"),
     Input("year-range", "value"),
 )
 def render_tab_content(tab, year_range):
-    dff = filter_by_year(df, year_range)
+    try:
+        dff = filter_by_year(df, year_range)
 
-    if dff.empty:
+        if dff.empty:
+            return html.Div(
+                [
+                    html.H2("No data"),
+                    html.P("No movies match the current filters / year range."),
+                ]
+            )
+
+        if tab == "tab-overview":
+            return overview_tab_content(dff)
+        elif tab == "tab-boxoffice":
+            return boxoffice_tab_content(dff)
+        elif tab == "tab-ratings":
+            return ratings_tab_content(dff)
+
+        return html.Div("Unknown tab")
+    except Exception as e:
+        logger.exception("Error in render_tab_content callback.")
         return html.Div(
             [
-                html.H2("No data"),
-                html.P("No movies match the current filters / year range."),
-            ]
+                html.H2("Error rendering dashboard"),
+                html.P("Check server logs for details."),
+                html.Pre(str(e)),
+            ],
+            style={"color": "red"},
         )
 
-    if tab == "tab-overview":
-        return overview_tab_content(dff)
-    elif tab == "tab-boxoffice":
-        return boxoffice_tab_content(dff)
-    elif tab == "tab-ratings":
-        return ratings_tab_content(dff)
 
-    return html.Div("Unknown tab")
-
-
-# ---------- TAB BUILDERS ----------
+# ------------------------------------------------------------------------------
+# TAB BUILDERS
+# ------------------------------------------------------------------------------
 def overview_tab_content(dff: pd.DataFrame):
-    # Histogram of movies per year
+    # Movies per year
     fig_hist = px.histogram(
         dff,
         x="release_year",
-        nbins=min(40, max(10, max_year - min_year)),
+        nbins=min(40, max(5, max_year - min_year)),
         title="Movies per year",
     )
 
-    # Scatter of domestic vs worldwide
+    # Domestic vs worldwide box office
     fig_scatter = px.scatter(
         dff,
         x="domestic_box_office_gross",
@@ -242,8 +353,7 @@ def overview_tab_content(dff: pd.DataFrame):
         title="Domestic vs worldwide box office",
     )
 
-
-    # Top 15 by worldwide box office
+    # Top by worldwide box office
     dff_top = (
         dff.dropna(subset=["box_office_gross_usd"])
         .sort_values("box_office_gross_usd", ascending=False)
@@ -254,7 +364,7 @@ def overview_tab_content(dff: pd.DataFrame):
         x="movie_title",
         y="box_office_gross_usd",
         text="box_office_gross_usd",
-        title="Top 15 movies by worldwide box office",
+        title="Top movies by worldwide box office",
     )
     fig_top.update_layout(xaxis_tickangle=-45)
 
@@ -269,7 +379,6 @@ def overview_tab_content(dff: pd.DataFrame):
 
 
 def boxoffice_tab_content(dff: pd.DataFrame):
-    # ROI = worldwide / budget
     dff_roi = dff.copy()
     mask = (dff_roi["production_budget_usd"].notna()) & (
         dff_roi["production_budget_usd"] > 0
@@ -289,16 +398,14 @@ def boxoffice_tab_content(dff: pd.DataFrame):
         x="movie_title",
         y="roi",
         hover_data=["box_office_gross_usd", "production_budget_usd"],
-        title="Top 15 ROI (Box Office / Budget)",
+        title="Top ROI (Box Office / Budget)",
     )
     fig_roi.update_layout(xaxis_tickangle=-45)
 
-    # Budget vs worldwide
     fig_budget_scatter = px.scatter(
         dff_roi,
         x="production_budget_usd",
         y="box_office_gross_usd",
-        size="total_audience_ratings",
         color="release_year",
         hover_name="movie_title",
         labels={
@@ -322,13 +429,11 @@ def ratings_tab_content(dff: pd.DataFrame):
         dff,
         x="critic_score",
         y="audience_avg_score",
-        size="total_critic_ratings",
         color="release_year",
         hover_name="movie_title",
         labels={
             "critic_score": "Critic score",
             "audience_avg_score": "Audience score",
-            "total_critic_ratings": "Total critic ratings",
         },
         title="Critic vs audience scores",
     )
@@ -342,7 +447,7 @@ def ratings_tab_content(dff: pd.DataFrame):
         dff_top_audience,
         x="movie_title",
         y="audience_avg_score",
-        title="Top 15 movies by audience score",
+        title="Top movies by audience score",
     )
     fig_top_audience.update_layout(xaxis_tickangle=-45)
 
@@ -355,6 +460,9 @@ def ratings_tab_content(dff: pd.DataFrame):
     )
 
 
+# ------------------------------------------------------------------------------
+# MAIN
+# ------------------------------------------------------------------------------
 if __name__ == "__main__":
-    # For Docker/K8s: app.run(debug=False, host="0.0.0.0", port=8050)
+    logger.info("Starting Dash server on http://127.0.0.1:8050/")
     app.run(debug=True)
